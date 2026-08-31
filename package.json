@@ -1,0 +1,8 @@
+{
+  "name":"torntracker",
+  "version":"1.0.0",
+  "private":true,
+  "description":"Torn statistics dashboard and market viewer",
+  "engines":{"node":">=18"},
+  "scripts":{"start":"vercel dev"}
+}
