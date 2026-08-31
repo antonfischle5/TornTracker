@@ -1,34 +1,30 @@
 const app = document.getElementById('app');
 const savedKey = sessionStorage.getItem('tornApiKey');
-
-const stats = [
-  ['Level','level'], ['Cash','money'], ['Energy','energy'], ['Nerve','nerve'],
-  ['Happy','happy'], ['Life','life'], ['Rank','rank'], ['Net Worth','networth']
+const defaultStats = [
+  { id:'level', label:'Level', path:'profile.level' },
+  { id:'money', label:'Cash', path:'money.cash' },
+  { id:'energy', label:'Energy', path:'bars.energy.current' },
+  { id:'nerve', label:'Nerve', path:'bars.nerve.current' },
+  { id:'happy', label:'Happy', path:'bars.happy.current' },
+  { id:'life', label:'Life', path:'bars.life.current' },
+  { id:'rank', label:'Rank', path:'profile.rank' },
+  { id:'networth', label:'Net Worth', path:'networth.total' }
 ];
-
-function login(){
-  app.innerHTML = `<main class="login"><div class="eyebrow">Torn dashboard</div><h1>Willkommen bei TornTracker</h1><p class="muted">Gib deinen Torn API-Key ein, um dein persönliches Dashboard zu laden.</p><input id="apiKey" class="field" type="password" autocomplete="off" placeholder="Torn API-Key"><button class="primary" id="connect">Verbinden</button><p class="muted">Der Key wird nur für diese Sitzung im Browser gespeichert.</p><div id="error" class="error"></div></main>`;
-  document.getElementById('connect').onclick = () => {
-    const key = document.getElementById('apiKey').value.trim();
-    if(!key){document.getElementById('error').textContent='Bitte einen API-Key eingeben.';return;}
-    sessionStorage.setItem('tornApiKey', key); location.reload();
-  };
-}
-
-function dashboard(data={}){
-  app.innerHTML = `<div class="shell"><header class="topbar"><div class="brand">Torn<span>Tracker</span></div><button class="menu-btn" id="menu">☰</button></header><main class="content"><section class="welcome"><div class="eyebrow">Dashboard</div><h1>Deine Torn-Statistiken</h1><p class="muted">Wähle später selbst aus, welche Werte du sehen möchtest.</p></section><section class="grid" id="stats"></section><section class="section"><h2>Markt & Bazaar</h2><p class="muted">Die Marktansicht ist vorbereitet. Für echte Torn-Marktdaten wird ein Backend empfohlen, damit API-Zugriffe und Caching sicher verwaltet werden.</p></section></main></div><div id="overlay" class="overlay hidden"></div><aside id="drawer" class="drawer hidden"><button class="menu-btn" id="close">×</button><h2>Menü</h2><div class="nav"><button data-page="dashboard">📊 Dashboard</button><button data-page="market">🏪 Item Market</button><button data-page="bazaar">🛒 Bazaar</button><button data-page="settings">⚙ Einstellungen</button><button id="logout">🔑 API-Key entfernen</button></div></aside>`;
-  const container=document.getElementById('stats');
-  stats.forEach(([label,key])=>{const value=data[key] ?? '—';container.innerHTML += `<article class="card"><div class="label">${label}</div><div class="value">${escapeHtml(String(value))}</div></article>`});
-  document.getElementById('menu').onclick=()=>toggle(true); document.getElementById('close').onclick=()=>toggle(false); document.getElementById('overlay').onclick=()=>toggle(false);
-  document.getElementById('logout').onclick=()=>{sessionStorage.removeItem('tornApiKey');location.reload()};
-  document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>page(b.dataset.page));
-}
+let selectedStats = JSON.parse(localStorage.getItem('tornTrackerStats') || 'null') || defaultStats;
+let userData = {};
+const money=n=>typeof n==='number'?'$'+n.toLocaleString('en-US'):String(n??'—');
+const getPath=(obj,path)=>path.split('.').reduce((v,k)=>v==null?undefined:v[k],obj);
+const esc=s=>String(s).replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\\':'&#92;','"':'&quot;'}[c]));
+async function api(url,options={}){const r=await fetch(url,{...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});const d=await r.json().catch(()=>({error:'Ungültige Serverantwort'}));if(!r.ok)throw new Error(d.error||'API-Fehler');return d;}
+function login(){app.innerHTML=`<main class="login"><div class="eyebrow">Torn dashboard</div><h1>Willkommen bei TornTracker</h1><p class="muted">Verbinde deinen Torn API-Key, um deine persönlichen Statistiken abzurufen.</p><input id="apiKey" class="field" type="password" autocomplete="off" placeholder="Torn API-Key"><button class="primary" id="connect">Verbinden</button><p class="muted small">Der Key bleibt nur in dieser Browser-Sitzung und wird nicht in GitHub gespeichert.</p><div id="error" class="error"></div></main>`;document.getElementById('connect').onclick=async()=>{const key=document.getElementById('apiKey').value.trim(),err=document.getElementById('error');if(!key){err.textContent='Bitte einen API-Key eingeben.';return}err.textContent='Verbinde…';try{await api('/api/torn?route=user/basic',{method:'POST',body:JSON.stringify({apiKey:key})});sessionStorage.setItem('tornApiKey',key);location.reload()}catch(e){err.textContent=e.message}}}
+async function loadDashboard(){try{userData=await api('/api/torn?route=user/dashboard',{method:'POST',body:JSON.stringify({apiKey:savedKey})});dashboard()}catch(e){login();document.getElementById('error').textContent=e.message}}
+function dashboard(){app.innerHTML=`<div class="shell"><header class="topbar"><div class="brand">Torn<span>Tracker</span></div><button class="menu-btn" id="menu">☰</button></header><main class="content"><section class="welcome"><div class="eyebrow">Dashboard</div><h1>${esc(getPath(userData,'profile.name')||'Dein Torn-Account')}</h1><p class="muted">Deine ausgewählten Statistiken.</p></section><div class="toolbar"><button class="secondary" id="customize">⚙ Statistiken anpassen</button><button class="secondary" id="refresh">↻ Aktualisieren</button></div><section class="grid" id="stats"></section></main></div><div id="overlay" class="overlay hidden"></div><aside id="drawer" class="drawer hidden"><button class="menu-btn" id="close">×</button><h2>Menü</h2><div class="nav"><button data-page="dashboard">📊 Dashboard</button><button data-page="market">🏪 Item Market</button><button data-page="bazaar">🛒 Bazaar</button><button data-page="settings">⚙ Einstellungen</button><button id="logout">🔑 API-Key entfernen</button></div></aside>`;renderStats();wireMenu();document.getElementById('customize').onclick=openCustomizer;document.getElementById('refresh').onclick=loadDashboard}
+function renderStats(){const c=document.getElementById('stats');c.innerHTML='';selectedStats.forEach(s=>{let v=getPath(userData,s.path);if(['money','networth'].includes(s.id))v=money(v);c.innerHTML+=`<article class="card"><div class="label">${esc(s.label)}</div><div class="value">${esc(v??'—')}</div></article>`})}
+function openCustomizer(){const choices=[...defaultStats,{id:'crime',label:'Crimes',path:'personalstats.crimes.total'},{id:'attacks',label:'Attacks Won',path:'personalstats.attackswon.total'},{id:'defends',label:'Defends Won',path:'personalstats.defendswon.total'}];app.insertAdjacentHTML('beforeend',`<div class="modal-wrap" id="customModal"><div class="modal"><h2>Statistiken auswählen</h2><p class="muted">Wähle die Karten für dein Dashboard.</p><div class="checks">${choices.map(s=>`<label><input type="checkbox" value="${s.id}" ${selectedStats.some(x=>x.id===s.id)?'checked':''}> ${esc(s.label)}</label>`).join('')}</div><div class="modal-actions"><button class="secondary" id="cancel">Abbrechen</button><button class="primary small-btn" id="save">Speichern</button></div></div></div>`);document.getElementById('cancel').onclick=()=>document.getElementById('customModal').remove();document.getElementById('save').onclick=()=>{selectedStats=choices.filter(s=>document.querySelector(`.checks input[value="${s.id}"]`)?.checked);if(!selectedStats.length)selectedStats=[defaultStats[0]];localStorage.setItem('tornTrackerStats',JSON.stringify(selectedStats));document.getElementById('customModal').remove();renderStats()}}
+function wireMenu(){document.getElementById('menu').onclick=()=>toggle(true);document.getElementById('close').onclick=()=>toggle(false);document.getElementById('overlay').onclick=()=>toggle(false);document.getElementById('logout').onclick=()=>{sessionStorage.removeItem('tornApiKey');location.reload()};document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>page(b.dataset.page))}
 function toggle(open){document.getElementById('drawer').classList.toggle('hidden',!open);document.getElementById('overlay').classList.toggle('hidden',!open)}
-function page(name){
-  toggle(false);
-  if(name==='market'||name==='bazaar') alert('Diese Ansicht benötigt noch den Torn-API-Proxy. Der nächste Schritt ist ein Backend mit sicherem API-Key-Handling.');
-  if(name==='settings') alert('Dashboard-Anpassungen können hier als nächstes ergänzt werden.');
-}
-function escapeHtml(s){return s.replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\\':'&#92;','"':'&quot;'}[c]))}
-
-if(savedKey) dashboard(); else login();
+function page(name){toggle(false);if(name==='market'||name==='bazaar')marketPage(name);if(name==='settings')openCustomizer()}
+function marketPage(type){const title=type==='market'?'Item Market':'Bazaar';app.innerHTML=`<div class="shell"><header class="topbar"><div class="brand">Torn<span>Tracker</span></div><button class="menu-btn" id="menu">☰</button></header><main class="content"><section class="welcome"><div class="eyebrow">${title}</div><h1>Aktuelle Preise</h1><p class="muted">Suche nach einer Item-ID und vergleiche Angebote.</p><div class="search-line"><input id="itemSearch" class="field search" placeholder="Item-ID"><button class="primary search-btn" id="search">Suchen</button></div><div id="marketError" class="error"></div></section><section class="card" id="marketResults"><div class="muted">Noch keine Suche.</div></section></main></div><div id="overlay" class="overlay hidden"></div><aside id="drawer" class="drawer hidden"><button class="menu-btn" id="close">×</button><h2>Menü</h2><div class="nav"><button data-page="dashboard">📊 Dashboard</button><button data-page="market">🏪 Item Market</button><button data-page="bazaar">🛒 Bazaar</button><button data-page="settings">⚙ Einstellungen</button><button id="logout">🔑 API-Key entfernen</button></div></aside>`;wireMenu();document.getElementById('search').onclick=()=>searchMarket(type)}
+async function searchMarket(type){const q=document.getElementById('itemSearch').value.trim(),out=document.getElementById('marketResults'),err=document.getElementById('marketError');if(!q){err.textContent='Bitte eine Item-ID eingeben.';return}err.textContent='';out.innerHTML='<div class="muted">Lade Marktdaten…</div>';try{const d=await api(`/api/torn?route=market&kind=${encodeURIComponent(type)}&item=${encodeURIComponent(q)}`,{method:'POST',body:JSON.stringify({apiKey:savedKey})});renderMarket(out,d)}catch(e){out.innerHTML='';err.textContent=e.message}}
+function renderMarket(out,data){const rows=Array.isArray(data.listings)?data.listings:[];if(!rows.length){out.innerHTML='<div class="muted">Keine Angebote gefunden.</div>';return}out.innerHTML=`<div class="market-row header-row"><strong>Verkäufer</strong><strong>Preis</strong><strong>Menge</strong></div>`+rows.slice(0,100).map(x=>`<div class="market-row"><span>${esc(x.seller||x.player_name||x.player?.name||'Unbekannt')}</span><span>${money(x.price)}</span><span>${esc(x.quantity??x.amount??'1')}</span></div>`).join('')}
+if(savedKey)loadDashboard();else login();
