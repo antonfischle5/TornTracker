@@ -54,7 +54,8 @@
       });
       if(Object.keys(historyValues).length)saveHistory(historyValues);
 
-      // Wenn ein Chart geöffnet ist, nur dessen Daten neu zeichnen und den ausgewählten Zeitraum behalten.
+      // Das Diagramm bekommt immer den aktuell gespeicherten Zeitraum zurück.
+      // Dadurch bleibt z. B. „1 Stunde“ auch nach jedem 10-Sekunden-Update aktiv.
       const modal=document.getElementById('chartModal');
       if(modal&&typeof window.__tornTrackerApplyChartRange==='function'){
         window.__tornTrackerApplyChartRange(localStorage.getItem('tornTrackerChartRange')||'all');
