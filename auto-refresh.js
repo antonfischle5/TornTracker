@@ -54,22 +54,10 @@
       });
       if(Object.keys(historyValues).length)saveHistory(historyValues);
 
+      // Wenn ein Chart geöffnet ist, nur dessen Daten neu zeichnen und den ausgewählten Zeitraum behalten.
       const modal=document.getElementById('chartModal');
-      if(modal){
-        const label=modal.querySelector('.chart-modal h2')?.textContent?.trim();
-        const labels={level:'Level',money:'Cash',energy:'Energy',nerve:'Nerve',happy:'Happy',life:'Life',rank:'Rank',networth:'Net Worth'};
-        const id=Object.keys(labels).find(k=>labels[k]===label);
-        if(id&&typeof window.openChart==='function'){
-          // Kein Dashboard-Reset: nur den vorhandenen Chart neu zeichnen.
-          const canvas=document.getElementById('statChart');
-          if(canvas&&typeof window.drawChart==='function'){
-            const stat={id,label:labels[id],type:paths[id]?.[1]||'number'};
-            const history=JSON.parse(localStorage.getItem('tornTrackerHistory')||'[]').filter(x=>typeof x[id]==='number');
-            window.drawChart(canvas,history,stat);
-            const meta=modal.querySelector('.chart-meta');
-            if(meta)meta.textContent=history.length<2?'Noch nicht genug Verlaufspunkte.':`${history.length} gespeicherte Messpunkte`;
-          }
-        }
+      if(modal&&typeof window.__tornTrackerApplyChartRange==='function'){
+        window.__tornTrackerApplyChartRange(localStorage.getItem('tornTrackerChartRange')||'all');
       }
     }catch(e){console.warn('TornTracker Statistik-Refresh:',e)}
     finally{busy=false}
