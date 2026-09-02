@@ -3,8 +3,26 @@
   const AUTH_KEY='tornTrackerAdminAuth';
   const isAdmin=()=>sessionStorage.getItem(AUTH_KEY)==='1';
   const FULL_IDS=new Set(['crime','attacks','defends']);
+  const STYLE_ID='tornTrackerFullAccessGuestStyle';
+
+  function setGuestStyle(){
+    let style=document.getElementById(STYLE_ID);
+    if(!style){
+      style=document.createElement('style');
+      style.id=STYLE_ID;
+      document.head.appendChild(style);
+    }
+    style.textContent=isAdmin()?'':`
+      #app .advanced-card{display:none!important}
+      #app #advancedPanel{display:none!important}
+      #app .advanced-stat{display:none!important}
+      #app .settings-section:has(.settings-body #fullKeyInput){display:none!important}
+      #app #adminSettingsSection{display:none!important}
+    `;
+  }
 
   function hideForGuests(){
+    setGuestStyle();
     if(isAdmin())return;
     document.querySelectorAll('.advanced-card').forEach(el=>el.remove());
     document.querySelectorAll('#adminSettingsSection').forEach(el=>el.remove());
@@ -79,8 +97,9 @@
     setTimeout(()=>clearInterval(timer),10000);
   }
 
-  // app.js rendert Seiten dynamisch; deshalb werden Full-Access-Elemente auch danach entfernt.
   const observer=new MutationObserver(()=>hideForGuests());
   observer.observe(document.documentElement,{childList:true,subtree:true});
+  window.addEventListener('tornTrackerAdminChanged',hideForGuests);
+  window.addEventListener('storage',hideForGuests);
   hideForGuests();
 })();
