@@ -1,6 +1,7 @@
 // TornTracker: nur Statistik-Werte aktualisieren – niemals die komplette Seite neu rendern.
 (function(){
   const INTERVAL=10000;
+  const MAX_HISTORY=10000;
   const API='https://api.torn.com/v2';
   const money=n=>typeof n==='number'?'$'+n.toLocaleString('en-US'):String(n??'—');
   const getPath=(o,p)=>p.split('.').reduce((v,k)=>v==null?undefined:v[k],o);
@@ -17,7 +18,7 @@
     try{
       const history=JSON.parse(localStorage.getItem('tornTrackerHistory')||'[]');
       history.push({time:Date.now(),...values});
-      while(history.length>100)history.shift();
+      while(history.length>MAX_HISTORY)history.shift();
       localStorage.setItem('tornTrackerHistory',JSON.stringify(history));
     }catch(_){ }
   }
@@ -54,8 +55,6 @@
       });
       if(Object.keys(historyValues).length)saveHistory(historyValues);
 
-      // Das Diagramm bekommt immer den aktuell gespeicherten Zeitraum zurück.
-      // Dadurch bleibt z. B. „1 Stunde“ auch nach jedem 10-Sekunden-Update aktiv.
       const modal=document.getElementById('chartModal');
       if(modal&&typeof window.__tornTrackerApplyChartRange==='function'){
         window.__tornTrackerApplyChartRange(localStorage.getItem('tornTrackerChartRange')||'all');
