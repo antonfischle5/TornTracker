@@ -12,20 +12,13 @@
       style.id=STYLE_ID;
       document.head.appendChild(style);
     }
-    style.textContent=isAdmin()?'':`
-      #app .advanced-card{display:none!important}
-      #app #advancedPanel{display:none!important}
-      #app .advanced-stat{display:none!important}
-      #app .settings-section:has(.settings-body #fullKeyInput){display:none!important}
-      #app #adminSettingsSection{display:none!important}
-    `;
+    style.textContent=isAdmin()?'':`#app .advanced-card{display:none!important}#app .settings-section:has(#fullKeyInput){display:none!important}#app #adminSettingsSection{display:none!important}`;
   }
 
   function hideForGuests(){
     setGuestStyle();
     if(isAdmin())return;
-    document.querySelectorAll('.advanced-card').forEach(el=>el.remove());
-    document.querySelectorAll('#adminSettingsSection').forEach(el=>el.remove());
+    document.querySelectorAll('.advanced-card,#adminSettingsSection').forEach(el=>el.remove());
     document.querySelectorAll('.checks label').forEach(label=>{
       const input=label.querySelector('input');
       if(input&&FULL_IDS.has(input.value))label.remove();
@@ -42,63 +35,27 @@
     }catch{}
   }
 
-  function patchDashboard(){
-    if(typeof window.dashboard!=='function'||window.__fullAccessDashboardPatched)return false;
-    const original=window.dashboard;
-    window.dashboard=function(){
-      original();
-      hideForGuests();
+  function patch(name,guard){
+    if(typeof window[name]!=='function'||window['__fullAccess'+name+'Patched'])return false;
+    const original=window[name];
+    window[name]=function(){
+      if(name==='loadAdvanced'&&!isAdmin())return;
+      const result=original.apply(this,arguments);
+      if(!isAdmin())hideForGuests();
+      return result;
     };
-    window.__fullAccessDashboardPatched=true;
-    return true;
-  }
-
-  function patchCustomizer(){
-    if(typeof window.openCustomizer!=='function'||window.__fullAccessCustomizerPatched)return false;
-    const original=window.openCustomizer;
-    window.openCustomizer=function(){
-      original();
-      if(isAdmin())return;
-      hideForGuests();
-    };
-    window.__fullAccessCustomizerPatched=true;
-    return true;
-  }
-
-  function patchSettings(){
-    if(typeof window.settingsPage!=='function'||window.__fullAccessSettingsPatched)return false;
-    const original=window.settingsPage;
-    window.settingsPage=function(){
-      original();
-      hideForGuests();
-    };
-    window.__fullAccessSettingsPatched=true;
-    return true;
-  }
-
-  function patchAdvancedLoader(){
-    if(typeof window.loadAdvanced!=='function'||window.__fullAccessLoaderPatched)return false;
-    const original=window.loadAdvanced;
-    window.loadAdvanced=function(type){
-      if(!isAdmin())return;
-      return original(type);
-    };
-    window.__fullAccessLoaderPatched=true;
+    window['__fullAccess'+name+'Patched']=true;
     return true;
   }
 
   function install(){
-    const results=[patchDashboard(),patchCustomizer(),patchSettings(),patchAdvancedLoader()];
-    return results.some(Boolean);
+    return [patch('dashboard'),patch('openCustomizer'),patch('settingsPage'),patch('loadAdvanced')].some(Boolean);
   }
 
   if(!install()){
-    const timer=setInterval(()=>{if(install())clearInterval(timer)},50);
-    setTimeout(()=>clearInterval(timer),10000);
+    const timer=setInterval(()=>{if(install())clearInterval(timer)},250);
+    setTimeout(()=>clearInterval(timer),5000);
   }
-
-  const observer=new MutationObserver(()=>hideForGuests());
-  observer.observe(document.documentElement,{childList:true,subtree:true});
   window.addEventListener('tornTrackerAdminChanged',hideForGuests);
   window.addEventListener('storage',hideForGuests);
   hideForGuests();
