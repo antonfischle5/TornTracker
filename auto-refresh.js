@@ -1,7 +1,7 @@
-// TornTracker: nur Statistik-Werte aktualisieren – niemals die komplette Seite neu rendern.
+// TornTracker: sparsame automatische Aktualisierung der Statistik-Werte.
 (function(){
-  const INTERVAL=10000;
-  const MAX_HISTORY=10000;
+  const INTERVAL=30000;
+  const MAX_HISTORY=2000;
   const API='https://api.torn.com/v2';
   const money=n=>typeof n==='number'?'$'+n.toLocaleString('en-US'):String(n??'—');
   const getPath=(o,p)=>p.split('.').reduce((v,k)=>v==null?undefined:v[k],o);
